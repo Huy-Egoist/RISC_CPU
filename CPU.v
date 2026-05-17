@@ -1,0 +1,105 @@
+`timescale 1ns / 1ps
+// ============================================================
+// RISC CPU - Top Level
+// Connects: PC, AddrMux, Memory, IR, Accumulator, ALU, Controller
+// 3-bit opcode | 5-bit operand (zero-extended to 32-bit internally)
+// ============================================================
+module risc_cpu (
+    input  clk,
+    input  rst,
+    output halt
+);
+
+    // Internal wires
+    wire [31:0] pc_out;
+    wire [31:0] ir_out;
+    wire [31:0] acc_out;
+    wire [31:0] alu_out;
+    wire [31:0] addr_bus;
+    wire [31:0] data_bus;
+    wire        is_zero;
+
+    // Opcode and operand from IR
+    wire [2:0]  opcode  = ir_out[7:5];
+    wire [4:0]  operand = ir_out[4:0];
+    wire [31:0] ir_addr = {{27{1'b0}}, operand};
+
+    // Control signals
+    wire sel, rd, ld_ir, inc_pc, ld_ac, ld_pc, wr, data_e;
+
+    // ?? Program Counter ?????????????????????????????????????
+    program_counter #(.WIDTH(32)) u_pc (
+        .clk      (clk),
+        .rst      (rst),
+        .inc_pc   (inc_pc),
+        .ld_pc    (ld_pc),
+        .data_in  (ir_addr),   // JMP: load operand into PC
+        .pc_out   (pc_out)
+    );
+
+    // ?? Address Mux ?????????????????????????????????????????
+    // sel=1 -> PC address (fetch) | sel=0 -> IR operand address (execute)
+    addr_mux #(.WIDTH(32)) u_mux (
+        .sel      (sel),
+        .pc_addr  (pc_out),
+        .ir_addr  (ir_addr),
+        .addr_out (addr_bus)
+    );
+
+    // ?? Memory ??????????????????????????????????????????????
+    memory #(.ADDR_WIDTH(32), .DATA_WIDTH(32), .MEM_DEPTH(256)) u_mem (
+        .clk  (clk),
+        .addr (addr_bus),
+        .rd   (rd),
+        .wr   (wr),
+        .data (data_bus)
+    );
+
+    // Accumulator drives data bus when STO (data_e=1)
+    assign data_bus = data_e ? acc_out : 32'bz;
+
+    // ?? Instruction Register ????????????????????????????????
+    register #(.WIDTH(32)) u_ir (
+        .clk      (clk),
+        .rst      (rst),
+        .load     (ld_ir),
+        .data_in  (data_bus),
+        .data_out (ir_out)
+    );
+
+    // ?? ALU ?????????????????????????????????????????????????
+    alu u_alu (
+        .opcode  (opcode),
+        .inA     (acc_out),
+        .inB     (data_bus),
+        .out     (alu_out),
+        .is_zero (is_zero)
+    );
+
+    // ?? Accumulator Register ????????????????????????????????
+    register #(.WIDTH(32)) u_acc (
+        .clk      (clk),
+        .rst      (rst),
+        .load     (ld_ac),
+        .data_in  (alu_out),
+        .data_out (acc_out)
+    );
+
+    // ?? Controller ??????????????????????????????????????????
+    controller u_ctrl (
+        .clk     (clk),
+        .rst     (rst),
+        .opcode  (opcode),
+        .is_zero (is_zero),
+        .sel     (sel),
+        .rd      (rd),
+        .ld_ir   (ld_ir),
+        .halt    (halt),
+        .inc_pc  (inc_pc),
+        .ld_ac   (ld_ac),
+        .ld_pc   (ld_pc),
+        .wr      (wr),
+        .data_e  (data_e)
+    );
+
+endmodule
