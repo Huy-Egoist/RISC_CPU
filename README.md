@@ -4,5 +4,5 @@
 | Student | ID |
 |---------|-----|
 | Nguyễn Minh Nhật | 2212397 |
-| Dương Gia Huy | 2211155 |
-| Nguyễn Quốc Tuấn Lâm | 2211816 |
+| Lê Ngọc Trường | 2313705 |
+| Võ Thị Ánh Tuyết | 2213826 |
